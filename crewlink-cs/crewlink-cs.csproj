@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net5.0-windows</TargetFramework>
+        <RootNamespace>crewlink</RootNamespace>
+        <UseWPF>true</UseWPF>
+        <AssemblyName>crewlink</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Company>crewlink</Company>
+        <Product>crewlink</Product>
+        <AssemblyVersion>1.0</AssemblyVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="NAudio" Version="1.10.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="util\" />
+    </ItemGroup>
+
+</Project>

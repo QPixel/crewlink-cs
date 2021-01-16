@@ -8,8 +8,21 @@ namespace crewlink.memoryreader
 {
     // Original Code from AmongUsCapture
     // https://github.com/
-    public abstract class Memory
+    public class ProcessMemory
     {
+        private static ProcessMemory instance;
+
+        public static ProcessMemory getInstance()
+        {
+            if (instance == null)
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    instance = new ProcessMemory();
+                }
+            }
+            return instance;
+        }
         protected bool is64Bit;
         public Process process;
         public List<Module> modules;
@@ -37,7 +50,7 @@ namespace crewlink.memoryreader
             return IsHooked;
         }
         
-        private void LoadModules()
+        public void LoadModules()
         {
             modules = new List<Module>();
             IntPtr[] buffer = new IntPtr[1024];
@@ -73,6 +86,11 @@ namespace crewlink.memoryreader
                 }
             }
         }
+
+        // public <T> ReadMemory()
+        // {
+        //                 
+        // }
         public class Module
         {
             public IntPtr BaseAddress { get; set; }
@@ -93,6 +111,61 @@ namespace crewlink.memoryreader
             public uint ModuleSize;
             public IntPtr EntryPoint;
         }
+        private ulong ScanMemory(byte[] moduleBytes, byte[] convertedByteArray, IntPtr BaseAddress)
+        {
+            ulong address = 0;
+            // If index after base address is less than the module bytes length increas
+            for (int indexAfterBase = 0; indexAfterBase < moduleBytes.Length; indexAfterBase++)
+            {
+                bool noMatch = false;
+
+                // If module bytes at the index after base address is not equal to the first entry of the converted sig pattern, continue 
+                if (moduleBytes[indexAfterBase] != convertedByteArray[0])
+                    continue;
+
+                // If the matched index is greater than the converted byte array length and the index after base address plus the MatchedIndex is less than the module bytes length increase
+                for (var MatchedIndex = 0; MatchedIndex < convertedByteArray.Length && indexAfterBase + MatchedIndex < moduleBytes.Length; MatchedIndex++)
+                {
+                    if (convertedByteArray[MatchedIndex] == 0x0)
+                    {
+                        continue;
+                    }
+                    if (convertedByteArray[MatchedIndex] != moduleBytes[indexAfterBase + MatchedIndex])
+                    {
+                        noMatch = true;
+                        break;
+                    }
+                }
+                if (!noMatch)
+                    // Debug.Write("Found GameData sig");
+                    return (ulong)BaseAddress + (ulong)indexAfterBase;
+            }
+            return address;
+        }
+            
+        public ulong FindPattern(Module module, string pattern)
+        {
+            IntPtr bytesRead;
+            byte[] ModuleBytes = new byte[module.MemorySize];
+            byte[] ConvertedByteArray = ConvertPattern(pattern);
+            Win32.ReadProcessMemory(process.Handle, module.BaseAddress, ModuleBytes, (int)module.MemorySize, out bytesRead);
+            return ScanMemory(ModuleBytes, ConvertedByteArray, module.BaseAddress);
+        }
+        private byte[] ConvertPattern(String pattern)
+        {
+            List<byte> convertedArray = new List<byte>();
+            
+            foreach (String each in pattern.Split(' '))
+            {
+                if (each == "?") { convertedArray.Add(Convert.ToByte("0", 16)); }
+                else 
+                {
+                    // Debug.WriteLine();
+                    convertedArray.Add(Convert.ToByte(each, 16));  
+                }
+            }
+            return convertedArray.ToArray();
+        } 
         private static class Win32
         {
             public const int PROCESS_CREATE_THREAD = 2;
@@ -140,8 +213,8 @@ namespace crewlink.memoryreader
 
             [DllImport("psapi.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
-            public static extern bool GetModuleInformation(IntPtr hProcess, IntPtr hModule, out ModuleInfo lpmodinfo,
+            public static extern bool GetModuleInformation(IntPtr hProcess, IntPtr hModule, out ModuleInfo lpModuleInfo,
                 uint cb);
-        }
+        } 
     }
 }
